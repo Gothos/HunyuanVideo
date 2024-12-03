@@ -90,6 +90,7 @@ class Inference(object):
         vae, _, s_ratio, t_ratio = load_vae(
             args.vae,
             args.vae_precision,
+            vae_path=args.vae_path,
             logger=logger,
             device=device if not args.use_cpu_offload else "cpu",
         )
