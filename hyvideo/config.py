@@ -185,7 +185,7 @@ def add_denoise_schedule_args(parser: argparse.ArgumentParser):
     group.add_argument(
         "--flow-shift",
         type=float,
-        default=9.0,
+        default=7.0,
         help="Shift factor for flow matching schedulers.",
     )
     group.add_argument(
@@ -264,7 +264,7 @@ def add_inference_args(parser: argparse.ArgumentParser):
     group.add_argument(
         "--infer-steps",
         type=int,
-        default=30,
+        default=50,
         help="Number of denoising steps for inference.",
     )
     group.add_argument(
@@ -329,7 +329,7 @@ def add_inference_args(parser: argparse.ArgumentParser):
         "seed column if available, otherwise use the fixed `seed` value. `prompt` will use the "
         "fixed `seed` value.",
     )
-    group.add_argument("--seed", type=int, default=0, help="Seed for evaluation.")
+    group.add_argument("--seed", type=int, default=None, help="Seed for evaluation.")
 
     # Classifier-Free Guidance
     group.add_argument(
