@@ -123,6 +123,7 @@ class Inference(object):
 
         text_encoder = TextEncoder(
             text_encoder_type=args.text_encoder,
+            text_encoder_path = args.text_encoder_path,
             max_length=max_length,
             text_encoder_precision=args.text_encoder_precision,
             tokenizer_type=args.tokenizer,
@@ -138,6 +139,7 @@ class Inference(object):
         if args.text_encoder_2 is not None:
             text_encoder_2 = TextEncoder(
                 text_encoder_type=args.text_encoder_2,
+                text_encoder_path=args.text_encoder_2_path,
                 max_length=args.text_len_2,
                 text_encoder_precision=args.text_encoder_precision_2,
                 tokenizer_type=args.tokenizer_2,
