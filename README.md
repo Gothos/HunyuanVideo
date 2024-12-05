@@ -15,20 +15,27 @@
   <a href="https://github.com/Tencent/HunyuanVideo/blob/main/assets/hunyuanvideo.pdf"><img src="https://img.shields.io/static/v1?label=Tech Report&message=Arxiv:HunyuanVideo&color=red&logo=arxiv"></a> &ensp;
   <a href="https://huggingface.co/tencent/HunyuanVideo"><img src="https://img.shields.io/static/v1?label=HunyuanVideo&message=HuggingFace&color=yellow"></a> &ensp; &ensp;
   <a href="https://huggingface.co/tencent/HunyuanVideo-PromptRewrite"><img src="https://img.shields.io/static/v1?label=HunyuanVideo-PromptRewrite&message=HuggingFace&color=yellow"></a> &ensp; &ensp;
+
+  [![Replicate](https://replicate.com/zsxkib/hunyuan-video/badge)](https://replicate.com/zsxkib/hunyuan-video)
 </div>
+<p align="center">
+    👋 Join our <a href="assets/WECHAT.md" target="_blank">WeChat</a> and <a href="https://discord.gg/GpARqvrh" target="_blank">Discord</a> 
+</p>
+<p align="center">
 
 -----
 
 This repo contains PyTorch model definitions, pre-trained weights and inference/sampling code for our paper exploring HunyuanVideo. You can find more visualizations on our [project page](https://aivideo.hunyuan.tencent.com).
 
-> [**HunyuanVideo: A Systematic Framework For Large Video Generation Model Training**](https://github.com/Tencent/HunyuanVideo/blob/main/assets/hunyuanvideo.pdf) <br>
+> [**HunyuanVideo: A Systematic Framework For Large Video Generation Model Training**](https://github.com/Tencent/HunyuanVideo/blob/main/assets/hunyuanvideo.pdf) <be>
+
 
 ## 🎥 Demo
 <div align="center">
   <video src="https://github.com/user-attachments/assets/f37925a3-7d42-40c9-8a9b-5a010c7198e2" width="50%">
 </div>
 
-The video is heavily compressed due to complaince of GitHub policy. The high quality version can be downloaded from [here](https://aivideo.hunyuan.tencent.com/download/HunyuanVideo/material/demo.mov).
+The video is heavily compressed due to compliance of GitHub policy. The high quality version can be downloaded from [here](https://aivideo.hunyuan.tencent.com/download/HunyuanVideo/material/demo.mov).
 
 ## 🔥🔥🔥 News!!
 * Dec 3, 2024: 🤗 We release the inference code and model weights of HunyuanVideo.
@@ -37,7 +44,8 @@ The video is heavily compressed due to complaince of GitHub policy. The high qua
 
 - HunyuanVideo (Text-to-Video Model)
   - [x] Inference 
-  - [x] Checkpoints 
+  - [x] Checkpoints
+  - [ ] Multi-gpu inference
   - [ ] Penguin Video Benchmark
   - [ ] Web Demo (Gradio) 
   - [ ] ComfyUI
@@ -100,9 +108,9 @@ overall model performance.
 </p>
 
 ### **MLLM Text Encoder**
-Some previous text-to-video model typically use pretrained CLIP and T5-XXL as text encoders where CLIP uses Transformer Encoder and T5 uses a Encoder-Decoder structure. In constrast, we utilize a pretrained Multimodal Large Language Model (MLLM) with a Decoder-Only structure as our text encoder, which has following advantages: (i) Compared with T5, MLLM after visual instruction finetuning has better image-text alignment in the feature space, which alleviates the difficulty of instruction following in diffusion models; (ii)
+Some previous text-to-video models typically use pretrained CLIP and T5-XXL as text encoders where CLIP uses Transformer Encoder and T5 uses a Encoder-Decoder structure. In constrast, we utilize a pretrained Multimodal Large Language Model (MLLM) with a Decoder-Only structure as our text encoder, which has following advantages: (i) Compared with T5, MLLM after visual instruction finetuning has better image-text alignment in the feature space, which alleviates the difficulty of instruction following in diffusion models; (ii)
 Compared with CLIP, MLLM has been demonstrated superior ability in image detail description
-and complex reasoning; (iii) MLLM can play as a zero-shot learner by following system instructions prepended to user prompts, helping text features pay more attention to key information. In addition, MLLM is based on causal attention while T5-XXL utilizes bidirectional attention that produces better text guidance for diffusion models. Therefore, we introduce an extra bidirectional token refiner for enhacing text features.
+and complex reasoning; (iii) MLLM can play as a zero-shot learner by following system instructions prepended to user prompts, helping text features pay more attention to key information. In addition, MLLM is based on causal attention while T5-XXL utilizes bidirectional attention that produces better text guidance for diffusion models. Therefore, we introduce an extra bidirectional token refiner for enhancing text features.
 <p align="center">
   <img src="https://raw.githubusercontent.com/Tencent/HunyuanVideo/refs/heads/main/assets/text_encoder.png"  height=275>
 </p>
@@ -160,8 +168,8 @@ The following table shows the requirements for running HunyuanVideo model (batch
 
 |     Model    |  Setting<br/>(height/width/frame) | Denoising step | GPU Peak Memory  |
 |:------------:|:--------------------------------:|:--------------:|:----------------:|
-| HunyuanVideo   |        720px1280px129f          |       30       |       60G        |
-| HunyuanVideo   |        544px960px129f           |       30       |       45G        |
+| HunyuanVideo   |        720px1280px129f          |       30       |       60GB        |
+| HunyuanVideo   |        544px960px129f           |       30       |       45GB        |
 
 * An NVIDIA GPU with CUDA support is required. 
   * We have tested on a single H800/H20 GPU.
@@ -195,6 +203,7 @@ conda activate HunyuanVideo
 python -m pip install -r requirements.txt
 
 # 4. Install flash attention v2 for acceleration (requires CUDA 11.8 or above)
+python -m pip install ninja
 python -m pip install git+https://github.com/Dao-AILab/flash-attention.git@v2.5.9.post1
 ```
 
