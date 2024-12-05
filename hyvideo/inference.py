@@ -499,6 +499,8 @@ class HunyuanVideoSampler(Inference):
         freqs_cos, freqs_sin = self.get_rotary_pos_embed(
             target_video_length, target_height, target_width
         )
+        freqs_cos = freqs_cos.to("cuda")
+        freqs_sin = freqs_sin.to("cuda")
         n_tokens = freqs_cos.shape[0]
 
         # ========================================================================
