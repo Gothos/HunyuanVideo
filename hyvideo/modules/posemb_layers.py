@@ -108,7 +108,8 @@ def reshape_for_broadcast(
                 x.shape[1],
                 x.shape[-1],
             ), f"freqs_cis shape {freqs_cis[0].shape} does not match x shape {x.shape}"
-            print(freqs_cis[0].device,freqs_cis[1].device)
+            freqs_cis = (freqs_cis[0].to("cuda"),freqs_cis[1].to("cuda"))
+
             shape = [d if i == 1 or i == ndim - 1 else 1 for i, d in enumerate(x.shape)]
         return freqs_cis[0].view(*shape), freqs_cis[1].view(*shape)
     else:
