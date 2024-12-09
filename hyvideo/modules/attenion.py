@@ -98,22 +98,24 @@ def attention(
     k = pre_attn_layout(k)
     v = pre_attn_layout(v)
 
-    if mode == "torch":
+    if False:
         if attn_mask is not None and attn_mask.dtype != torch.bool:
             attn_mask = attn_mask.to(q.dtype)
         x = F.scaled_dot_product_attention(
             q, k, v, attn_mask=attn_mask, dropout_p=drop_rate, is_causal=causal
         )
-    elif mode == "flash":
+    elif True:
+        qdtype = q.dtype
         x = flash_attn_varlen_func(
-            q,
-            k,
-            v,
+            q.to(torch.bfloat16),
+            k.to(torch.bfloat16),
+            v.to(torch.bfloat16),
             cu_seqlens_q,
             cu_seqlens_kv,
             max_seqlen_q,
             max_seqlen_kv,
         )
+        x.to(qdtype)
         # x with shape [(bxs), a, d]
         x = x.view(
             batch_size, max_seqlen_q, x.shape[-2], x.shape[-1]
