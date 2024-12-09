@@ -98,7 +98,7 @@ def attention(
     k = pre_attn_layout(k)
     v = pre_attn_layout(v)
 
-    if False:
+    if mode=="torch":
         if attn_mask is not None and attn_mask.dtype != torch.bool:
             attn_mask = attn_mask.to(q.dtype)
         x = F.scaled_dot_product_attention(
