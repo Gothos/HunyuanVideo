@@ -38,7 +38,7 @@ This repo contains PyTorch model definitions, pre-trained weights and inference/
 The video is heavily compressed due to compliance of GitHub policy. The high quality version can be downloaded from [here](https://aivideo.hunyuan.tencent.com/download/HunyuanVideo/material/demo.mov).
 
 ## 🔥🔥🔥 News!!
-* Dec 7, 2024: 🤗 We release the parallel inference code for HunyuanVideo powered by [xDiT](https://github.com/xdit-project/xDiT).
+* Dec 7, 2024: 🚀 We release the parallel inference code for HunyuanVideo powered by [xDiT](https://github.com/xdit-project/xDiT).
 * Dec 3, 2024: 🤗 We release the inference code and model weights of HunyuanVideo.
 
 ## 📑 Open-source Plan
@@ -47,8 +47,8 @@ The video is heavily compressed due to compliance of GitHub policy. The high qua
   - [x] Inference 
   - [x] Checkpoints
   - [x] Multi-gpus Sequence Parallel inference (Faster inference speed on more gpus)
+  - [x] Web Demo (Gradio) 
   - [ ] Penguin Video Benchmark
-  - [ ] Web Demo (Gradio) 
   - [ ] ComfyUI
   - [ ] Diffusers 
   - [ ] Multi-gpus PipeFusion inference (Low memory requirmenets)
@@ -76,6 +76,7 @@ The video is heavily compressed due to compliance of GitHub policy. The high qua
   - [🧱 Download Pretrained Models](#-download-pretrained-models)
   - [🔑 Single-gpu Inference](#-single-gpu-inference)
     - [Using Command Line](#using-command-line)
+    - [Run a Gradio Server](#run-a-gradio-server)
     - [More Configurations](#more-configurations)
   - [🚀 Parallel Inference on Multiple GPUs by xDiT](#-parallel-inference-on-multiple-gpus-by-xdit)
     - [Install Dependencies Compatible with xDiT](#install-dependencies-compatible-with-xdit)
@@ -254,6 +255,14 @@ python3 sample_video.py \
     --save-path ./results
 ```
 
+### Run a Gradio Server
+```bash
+python3 gradio_server.py --flow-reverse
+
+# set SERVER_NAME and SERVER_PORT manually
+# SERVER_NAME=0.0.0.0 SERVER_PORT=8081 python3 gradio_server.py --flow-reverse
+```
+
 ### More Configurations
 
 We list some more useful configurations for easy usage:
@@ -356,6 +365,7 @@ You can change the `--ulysses-degree` and `--ring-degree` to control the paralle
 </tr>
 <tr>
     <th>1</th>
+    <th>2</th>
     <th>4</th>
     <th>8</th>
 </tr>
@@ -363,8 +373,9 @@ You can change the `--ulysses-degree` and `--ring-degree` to control the paralle
 <tbody>
 <tr>
     <th>1904.08</th>
-    <th>514.08</th>
-    <th>337.58</th>
+    <th>934.09 (2.04x)</th>
+    <th>514.08 (3.70x)</th>
+    <th>337.58 (5.64x)</th>
 </tr>
 
 </tbody>
