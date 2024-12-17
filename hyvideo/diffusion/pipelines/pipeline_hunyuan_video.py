@@ -27,6 +27,7 @@ from packaging import version
 from diffusers.callbacks import MultiPipelineCallbacks, PipelineCallback
 from diffusers.configuration_utils import FrozenDict
 from diffusers.image_processor import VaeImageProcessor
+from diffusers.video_processor import VideoProcessor
 from diffusers.loaders import LoraLoaderMixin, TextualInversionLoaderMixin
 from diffusers.models import AutoencoderKL
 from diffusers.models.lora import adjust_lora_scale_text_encoder
@@ -135,6 +136,27 @@ def retrieve_timesteps(
         timesteps = scheduler.timesteps
     return timesteps, num_inference_steps
 
+def retrieve_latents(
+    encoder_output: torch.Tensor, generator: Optional[torch.Generator] = None, sample_mode: str = "sample"
+):
+    if hasattr(encoder_output, "latent_dist") and sample_mode == "sample":
+        return encoder_output.latent_dist.sample(generator)
+    elif hasattr(encoder_output, "latent_dist") and sample_mode == "argmax":
+        return encoder_output.latent_dist.mode()
+    elif hasattr(encoder_output, "latents"):
+        return encoder_output.latents
+    else:
+        raise AttributeError("Could not access latents of provided encoder_output")
+    
+def get_sigmas(timesteps, n_dim=4, dtype=torch.float32, noise_scheduler=None):
+    sigmas = noise_scheduler.sigmas.to(device=timesteps.device, dtype=dtype)
+    schedule_timesteps = noise_scheduler.timesteps.to(timesteps.device)
+    step_indices = [(schedule_timesteps == t).nonzero().item() for t in timesteps]
+
+    sigma = sigmas[step_indices].flatten()
+    while len(sigma.shape) < n_dim:
+        sigma = sigma.unsqueeze(-1)
+    return sigma
 
 @dataclass
 class HunyuanVideoPipelineOutput(BaseOutput):
@@ -234,6 +256,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
         )
         self.vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
         self.image_processor = VaeImageProcessor(vae_scale_factor=self.vae_scale_factor)
+        self.video_processor = VideoProcessor(4)
 
     def encode_prompt(
         self,
@@ -478,6 +501,15 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             if accepts:
                 extra_step_kwargs[k] = v
         return extra_step_kwargs
+    
+    def get_timesteps(self, num_inference_steps, timesteps, strength, device):
+        # get the original timestep using init_timestep
+        init_timestep = min(int(num_inference_steps * strength), num_inference_steps)
+
+        t_start = max(num_inference_steps - init_timestep, 0)
+        timesteps = timesteps[t_start * self.scheduler.order :]
+
+        return timesteps, num_inference_steps - t_start
 
     def check_inputs(
         self,
@@ -557,42 +589,73 @@ class HunyuanVideoPipeline(DiffusionPipeline):
 
     def prepare_latents(
         self,
-        batch_size,
-        num_channels_latents,
-        height,
-        width,
-        video_length,
-        dtype,
-        device,
-        generator,
-        latents=None,
+        video: Optional[torch.Tensor] = None,
+        batch_size: int = 1,
+        num_channels_latents: int = 16,
+        height: int = 60,
+        width: int = 90,
+        video_length=129,
+        dtype: Optional[torch.dtype] = None,
+        device: Optional[torch.device] = None,
+        generator: Optional[torch.Generator] = None,
+        latents: Optional[torch.Tensor] = None,
+        timestep: Optional[torch.Tensor] = None,
     ):
-        shape = (
-            batch_size,
-            num_channels_latents,
-            video_length,
-            int(height) // self.vae_scale_factor,
-            int(width) // self.vae_scale_factor,
-        )
         if isinstance(generator, list) and len(generator) != batch_size:
             raise ValueError(
                 f"You have passed a list of generators of length {len(generator)}, but requested an effective batch"
                 f" size of {batch_size}. Make sure the batch size matches the length of the generators."
             )
-
-        if latents is None:
-            latents = randn_tensor(
-                shape, generator=generator, device=device, dtype=dtype
-            )
+        if video is not None:
+            num_frames = (video.size(2) - 1) // 4 + 1 if latents is None else latents.size(1)
         else:
-            latents = latents.to(device)
+            num_frames = video_length
 
-        # Check existence to make it compatible with FlowMatchEulerDiscreteScheduler
-        if hasattr(self.scheduler, "init_noise_sigma"):
-            # scale the initial noise by the standard deviation required by the scheduler
-            latents = latents * self.scheduler.init_noise_sigma
-        return latents
+        shape = (
+            batch_size,
+            num_channels_latents,
+            num_frames,
+            height // 8,
+            width // 8,
+        )
+        noise = randn_tensor(shape, generator=generator, device=device, dtype=dtype)
 
+        with torch.no_grad():
+            if latents is None:
+                if video is not None:
+
+                    if isinstance(generator, list):
+                        init_latents = [
+                            retrieve_latents(self.vae.encode(video[i].unsqueeze(0)), generator[i]) for i in range(batch_size)
+                        ]
+                    else:
+                        init_latents = [retrieve_latents(self.vae.encode(vid.unsqueeze(0)), generator) for vid in video]
+                    init_latents = torch.cat(init_latents, dim=0).to(dtype) #.permute(0, 2, 1, 3, 4)  # [B, F, C, H, W]
+
+                    if (
+                        hasattr(self.vae.config, "shift_factor")
+                        and self.vae.config.shift_factor
+                    ):
+                        print("wha")
+                        init_latents = (
+                            init_latents / self.vae.config.scaling_factor
+                            + self.vae.config.shift_factor
+                        )
+                    else:
+                        init_latents = init_latents * self.vae.config.scaling_factor
+
+                    noisy_init_latents = self.scheduler.scale_noise(init_latents, timestep,noise)
+                    
+
+                    latents = noisy_init_latents
+
+                else:
+                    latents = noise
+                    init_latents= noise
+            else:
+                latents = latents.to(device)
+
+            return latents,noise,init_latents
     # Copied from diffusers.pipelines.latent_consistency_models.pipeline_latent_consistency_text2img.LatentConsistencyModelPipeline.get_guidance_scale_embedding
     def get_guidance_scale_embedding(
         self,
@@ -699,6 +762,8 @@ class HunyuanVideoPipeline(DiffusionPipeline):
         enable_tiling: bool = False,
         n_tokens: Optional[int] = None,
         embedded_guidance_scale: Optional[float] = None,
+        video=None,
+        strength = 0.6,
         **kwargs,
     ):
         r"""
@@ -915,6 +980,11 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             sigmas,
             **extra_set_timesteps_kwargs,
         )
+        if video is not None:
+            video = self.video_processor.preprocess_video(video, height=height, width=width)
+            video = video.to(device=device, dtype=prompt_embeds.dtype)
+            timesteps, num_inference_steps= self.get_timesteps(num_inference_steps, timesteps, strength, device)
+        noise_timestep = timesteps[:1].repeat(batch_size * num_videos_per_prompt)
 
         if "884" in vae_ver:
             video_length = (video_length - 1) // 4 + 1
@@ -925,7 +995,8 @@ class HunyuanVideoPipeline(DiffusionPipeline):
 
         # 5. Prepare latent variables
         num_channels_latents = self.transformer.config.in_channels
-        latents = self.prepare_latents(
+        latents,noise,video_latents = self.prepare_latents(
+            video,
             batch_size * num_videos_per_prompt,
             num_channels_latents,
             height,
@@ -934,7 +1005,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             prompt_embeds.dtype,
             device,
             generator,
-            latents,
+            latents,noise_timestep
         )
 
         # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
