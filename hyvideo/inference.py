@@ -505,7 +505,7 @@ class HunyuanVideoSampler(Inference):
         batch_size=1,
         num_videos_per_prompt=1,
         video=None,
-        strength=0.8
+        strength=0.8,
         **kwargs,
     ):
         """
