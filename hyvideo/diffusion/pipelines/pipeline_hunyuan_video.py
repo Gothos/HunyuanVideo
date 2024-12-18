@@ -980,11 +980,13 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             sigmas,
             **extra_set_timesteps_kwargs,
         )
+        
         if video is not None:
             video = self.video_processor.preprocess_video(video, height=height, width=width)
             video = video.to(device=device, dtype=prompt_embeds.dtype)
             timesteps, num_inference_steps= self.get_timesteps(num_inference_steps, timesteps, strength, device)
         noise_timestep = timesteps[:1].repeat(batch_size * num_videos_per_prompt)
+        print(video.shape)
 
         if "884" in vae_ver:
             video_length = (video_length - 1) // 4 + 1
@@ -1007,6 +1009,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             generator,
             latents,noise_timestep
         )
+        print(latents.shape)
 
         # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = self.prepare_extra_func_kwargs(
