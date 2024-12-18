@@ -984,9 +984,9 @@ class HunyuanVideoPipeline(DiffusionPipeline):
         if video is not None:
             video = self.video_processor.preprocess_video(video, height=height, width=width)
             video = video.to(device=device, dtype=prompt_embeds.dtype)
+            print(video.shape)
             timesteps, num_inference_steps= self.get_timesteps(num_inference_steps, timesteps, strength, device)
         noise_timestep = timesteps[:1].repeat(batch_size * num_videos_per_prompt)
-        print(video.shape)
 
         if "884" in vae_ver:
             video_length = (video_length - 1) // 4 + 1
