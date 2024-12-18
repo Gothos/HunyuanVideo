@@ -617,10 +617,8 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             height // 8,
             width // 8,
         )
-        print(shape,batch_size,"sh bsz")
 
         noise = randn_tensor(shape, generator=generator, device=device, dtype=dtype)
-        print(noise.shape,"noise")
         with torch.no_grad():
             if latents is None:
                 if video is not None:
@@ -635,7 +633,6 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                         hasattr(self.vae.config, "shift_factor")
                         and self.vae.config.shift_factor
                     ):
-                        print("wha")
                         init_latents = (
                             init_latents / self.vae.config.scaling_factor
                             + self.vae.config.shift_factor
@@ -983,7 +980,6 @@ class HunyuanVideoPipeline(DiffusionPipeline):
         if video is not None:
             video = self.video_processor.preprocess_video(video, height=height, width=width)
             video = video.to(device=device, dtype=prompt_embeds.dtype)
-            print(video.shape)
             timesteps, num_inference_steps= self.get_timesteps(num_inference_steps, timesteps, strength, device)
         noise_timestep = timesteps[:1].repeat(batch_size * num_videos_per_prompt)
 
@@ -1008,7 +1004,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             generator,
             latents,noise_timestep
         )
-        print(latents.shape)
+        print(latents.shape,noise.shape,video_latents.shape)
 
         # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
         extra_step_kwargs = self.prepare_extra_func_kwargs(
@@ -1032,68 +1028,69 @@ class HunyuanVideoPipeline(DiffusionPipeline):
         # if is_progress_bar:
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
-                if self.interrupt:
-                    continue
+                if latents.numel()!=0:
+                    if self.interrupt:
+                        continue
 
-                # expand the latents if we are doing classifier free guidance
-                latent_model_input = (
-                    torch.cat([latents] * 2)
-                    if self.do_classifier_free_guidance
-                    else latents
-                )
-                latent_model_input = self.scheduler.scale_model_input(
-                    latent_model_input, t
-                )
-
-                t_expand = t.repeat(latent_model_input.shape[0])
-                guidance_expand = (
-                    torch.tensor(
-                        [embedded_guidance_scale] * latent_model_input.shape[0],
-                        dtype=torch.float32,
-                        device=device,
-                    ).to(target_dtype)
-                    * 1000.0
-                    if embedded_guidance_scale is not None
-                    else None
-                )
-
-                # predict the noise residual
-                with torch.autocast(
-                    device_type="cuda", dtype=target_dtype, enabled=autocast_enabled
-                ):
-                    noise_pred = self.transformer(  # For an input image (129, 192, 336) (1, 256, 256)
-                        latent_model_input,  # [2, 16, 33, 24, 42]
-                        t_expand,  # [2]
-                        text_states=prompt_embeds,  # [2, 256, 4096]
-                        text_mask=prompt_mask,  # [2, 256]
-                        text_states_2=prompt_embeds_2,  # [2, 768]
-                        freqs_cos=freqs_cis[0],  # [seqlen, head_dim]
-                        freqs_sin=freqs_cis[1],  # [seqlen, head_dim]
-                        guidance=guidance_expand,
-                        return_dict=True,
-                    )[
-                        "x"
-                    ]
-
-                # perform guidance
-                if self.do_classifier_free_guidance:
-                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-                    noise_pred = noise_pred_uncond + self.guidance_scale * (
-                        noise_pred_text - noise_pred_uncond
+                    # expand the latents if we are doing classifier free guidance
+                    latent_model_input = (
+                        torch.cat([latents] * 2)
+                        if self.do_classifier_free_guidance
+                        else latents
+                    )
+                    latent_model_input = self.scheduler.scale_model_input(
+                        latent_model_input, t
                     )
 
-                if self.do_classifier_free_guidance and self.guidance_rescale > 0.0:
-                    # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
-                    noise_pred = rescale_noise_cfg(
-                        noise_pred,
-                        noise_pred_text,
-                        guidance_rescale=self.guidance_rescale,
+                    t_expand = t.repeat(latent_model_input.shape[0])
+                    guidance_expand = (
+                        torch.tensor(
+                            [embedded_guidance_scale] * latent_model_input.shape[0],
+                            dtype=torch.float32,
+                            device=device,
+                        ).to(target_dtype)
+                        * 1000.0
+                        if embedded_guidance_scale is not None
+                        else None
                     )
 
-                # compute the previous noisy sample x_t -> x_t-1
-                latents = self.scheduler.step(
-                    noise_pred, t, latents, **extra_step_kwargs, return_dict=False
-                )[0]
+                    # predict the noise residual
+                    with torch.autocast(
+                        device_type="cuda", dtype=target_dtype, enabled=autocast_enabled
+                    ):
+                        noise_pred = self.transformer(  # For an input image (129, 192, 336) (1, 256, 256)
+                            latent_model_input,  # [2, 16, 33, 24, 42]
+                            t_expand,  # [2]
+                            text_states=prompt_embeds,  # [2, 256, 4096]
+                            text_mask=prompt_mask,  # [2, 256]
+                            text_states_2=prompt_embeds_2,  # [2, 768]
+                            freqs_cos=freqs_cis[0],  # [seqlen, head_dim]
+                            freqs_sin=freqs_cis[1],  # [seqlen, head_dim]
+                            guidance=guidance_expand,
+                            return_dict=True,
+                        )[
+                            "x"
+                        ]
+
+                    # perform guidance
+                    if self.do_classifier_free_guidance:
+                        noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                        noise_pred = noise_pred_uncond + self.guidance_scale * (
+                            noise_pred_text - noise_pred_uncond
+                        )
+
+                    if self.do_classifier_free_guidance and self.guidance_rescale > 0.0:
+                        # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
+                        noise_pred = rescale_noise_cfg(
+                            noise_pred,
+                            noise_pred_text,
+                            guidance_rescale=self.guidance_rescale,
+                        )
+
+                    # compute the previous noisy sample x_t -> x_t-1
+                    latents = self.scheduler.step(
+                        noise_pred, t, latents, **extra_step_kwargs, return_dict=False
+                    )[0]
 
                 if callback_on_step_end is not None:
                     callback_kwargs = {}
