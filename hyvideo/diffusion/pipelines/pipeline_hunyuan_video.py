@@ -1006,7 +1006,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             generator,
             latents,noise_timestep
         )
-        print(latents.shape,noise.shape,video.shape,"3 shapes")
+        print(latents.shape,noise.shape,video_latents.shape,"3 shapes")
 
 
         # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
