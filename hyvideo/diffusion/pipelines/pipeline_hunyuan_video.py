@@ -640,12 +640,12 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                         )
                     else:
                         init_latents = init_latents * self.vae.config.scaling_factor
-
                     noisy_init_latents = self.scheduler.scale_noise(init_latents, timestep,noise)
-                    print(noisy_init_latents.shape)
+                    print(noisy_init_latents.shape,noise.shape,timestep,"noisy, noise")
                     
 
                     latents = noisy_init_latents
+                    print(latents.shape,"lat shape")
 
                 else:
                     latents = noise
@@ -1006,7 +1006,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             generator,
             latents,noise_timestep
         )
-        print(latents.shape,noise.shape,video)
+        print(latents.shape,noise.shape,video.shape,"3 shapes")
 
 
         # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
