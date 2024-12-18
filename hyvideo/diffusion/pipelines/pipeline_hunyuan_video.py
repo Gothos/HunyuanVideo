@@ -610,7 +610,6 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             num_frames = (video.size(2) - 1) // 4 + 1 if latents is None else latents.size(1)
         else:
             num_frames = video_length
-
         shape = (
             batch_size,
             num_channels_latents,
@@ -618,16 +617,16 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             height // 8,
             width // 8,
         )
-        noise = randn_tensor(shape, generator=generator, device=device, dtype=dtype)
+        print(shape,batch_size,"sh bsz")
 
+        noise = randn_tensor(shape, generator=generator, device=device, dtype=dtype)
+        print(noise.shape,"noise")
         with torch.no_grad():
             if latents is None:
                 if video is not None:
 
                     if isinstance(generator, list):
-                        init_latents = [
-                            retrieve_latents(self.vae.encode(video[i].unsqueeze(0)), generator[i]) for i in range(batch_size)
-                        ]
+                        init_latents = [retrieve_latents(self.vae.encode(vid.unsqueeze(0)), generator[0]) for vid in video]
                     else:
                         init_latents = [retrieve_latents(self.vae.encode(vid.unsqueeze(0)), generator) for vid in video]
                     init_latents = torch.cat(init_latents, dim=0).to(dtype) #.permute(0, 2, 1, 3, 4)  # [B, F, C, H, W]
