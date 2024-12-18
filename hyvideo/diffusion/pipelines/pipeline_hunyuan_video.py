@@ -505,7 +505,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
     def get_timesteps(self, num_inference_steps, timesteps, strength, device):
         # get the original timestep using init_timestep
         init_timestep = min(int(num_inference_steps * strength), num_inference_steps)
-
+        print(init_timestep,"init_timestep")
         t_start = max(num_inference_steps - init_timestep, 0)
         timesteps = timesteps[t_start * self.scheduler.order :]
 
@@ -978,13 +978,13 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             sigmas,
             **extra_set_timesteps_kwargs,
         )
-        print(timesteps,timesteps)
         if video is not None:
             video = self.video_processor.preprocess_video(video, height=height, width=width)
             video = video.to(device=device, dtype=prompt_embeds.dtype)
+            print(timesteps,num_inference_steps,strength,"before")
             timesteps, num_inference_steps= self.get_timesteps(num_inference_steps, timesteps, strength, device)
-            print(timesteps,num_inference_steps)
-            print(timesteps[:1].repeat(batch_size * num_videos_per_prompt))
+            print(timesteps,num_inference_steps,"after")
+            print(timesteps[:1].repeat(batch_size * num_videos_per_prompt),"repeat")
         noise_timestep = timesteps[:1].repeat(batch_size * num_videos_per_prompt)
 
         if "884" in vae_ver:
