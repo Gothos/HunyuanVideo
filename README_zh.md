@@ -28,7 +28,7 @@
 
 
 <p align="center">
-    👋 加入我们的 <a href="assets/WECHAT.md" target="_blank">WeChat</a> 和 <a href="https://discord.gg/GpARqvrh" target="_blank">Discord</a> 
+    👋 加入我们的 <a href="assets/WECHAT.md" target="_blank">WeChat</a> 和 <a href="https://discord.gg/tv7FkG4Nwf" target="_blank">Discord</a> 
 </p>
 
 
@@ -43,6 +43,7 @@
 
 ## 🔥🔥🔥 更新!!
 
+* 2025年01月13日: 📈 开源 Penguin Video [基准测试集](https://github.com/Tencent/HunyuanVideo/blob/main/assets/PenguinVideoBenchmark.csv) 。
 * 2024年12月18日: 🏃‍♂️ 开源 HunyuanVideo [FP8 模型权重](https://huggingface.co/tencent/HunyuanVideo/blob/main/hunyuan-video-t2v-720p/transformers/mp_rank_00_model_states_fp8.pt)，节省更多 GPU 显存。
 * 2024年12月17日: 🤗 HunyuanVideo已经集成到[Diffusers](https://huggingface.co/docs/diffusers/main/api/pipelines/hunyuan_video)中。
 * 2024年12月03日: 🚀 开源 HunyuanVideo 多卡并行推理代码，由[xDiT](https://github.com/xdit-project/xDiT)提供。
@@ -63,6 +64,8 @@
 
 - ComfyUI (支持FP8推理、V2V和IP2V生成): [ComfyUI-HunyuanVideoWrapper](https://github.com/kijai/ComfyUI-HunyuanVideoWrapper) by [Kijai](https://github.com/kijai)
 
+- ComfyUI-Native (ComfyUI官方原生支持): [ComfyUI-HunyuanVideo](https://comfyanonymous.github.io/ComfyUI_examples/hunyuan_video/) by [ComfyUI Official](https://github.com/comfyanonymous/ComfyUI)
+
 - FastVideo (一致性蒸馏模型): [FastVideo](https://github.com/hao-ai-lab/FastVideo) by [Hao AI Lab](https://hao-ai-lab.github.io/)
 
 - HunyuanVideo-gguf (GGUF、量化): [HunyuanVideo-gguf](https://huggingface.co/city96/HunyuanVideo-gguf) by [city96](https://huggingface.co/city96)
@@ -70,6 +73,8 @@
 - Enhance-A-Video (生成更高质量的视频): [Enhance-A-Video](https://github.com/NUS-HPC-AI-Lab/Enhance-A-Video) by [NUS-HPC-AI-Lab](https://ai.comp.nus.edu.sg/)
 
 - TeaCache (基于缓存的加速采样): [TeaCache](https://github.com/LiewFeng/TeaCache) by [Feng Liu](https://github.com/LiewFeng)
+
+- HunyuanVideoGP (针对低性能GPU的版本): [HunyuanVideoGP](https://github.com/deepbeepmeep/HunyuanVideoGP) by [DeepBeepMeep](https://github.com/deepbeepmeep)
 
 
 
@@ -82,7 +87,7 @@
   - [x] Web Demo (Gradio) 
   - [x] Diffusers 
   - [x] FP8 量化版本
-  - [ ] Penguin Video 基准测试集 
+  - [x] Penguin Video 基准测试集 
   - [ ] ComfyUI
   - [ ] 多GPU PipeFusion并行推理 (更低显存需求)
 - HunyuanVideo (图生视频模型)
