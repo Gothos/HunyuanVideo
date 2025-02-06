@@ -1170,6 +1170,16 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                 else:
                     print("flowedit")
                     t_expand = t.repeat(latents.shape[0])
+                    guidance_expand = (
+                        torch.tensor(
+                            [embedded_guidance_scale] * latents.shape[0],
+                            dtype=torch.float32,
+                            device=device,
+                        ).to(target_dtype)
+                        * 1000.0
+                        if embedded_guidance_scale is not None
+                        else None
+                    )
 
                     zt_edit = latents.clone()
 
