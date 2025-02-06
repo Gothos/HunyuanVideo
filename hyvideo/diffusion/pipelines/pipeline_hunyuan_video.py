@@ -1030,7 +1030,8 @@ class HunyuanVideoPipeline(DiffusionPipeline):
         if video is not None:
             video = self.video_processor.preprocess_video(video, height=height, width=width)
             video = video.to(device=device, dtype=prompt_embeds.dtype)
-            timesteps, num_inference_steps= self.get_timesteps(num_inference_steps, timesteps, strength, device)
+            if not flowedit:
+                timesteps, num_inference_steps= self.get_timesteps(num_inference_steps, timesteps, strength, device)
         noise_timestep = timesteps[:1].repeat(batch_size * num_videos_per_prompt)
 
         if "884" in vae_ver:
@@ -1080,6 +1081,8 @@ class HunyuanVideoPipeline(DiffusionPipeline):
         # if is_progress_bar:
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
+                t_expand = t.repeat(latent_model_input.shape[0])
+
 
                 if not flowedit:
                     if self.interrupt:
@@ -1094,8 +1097,6 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                     latent_model_input = self.scheduler.scale_model_input(
                         latent_model_input, t
                     )
-
-                    t_expand = t.repeat(latent_model_input.shape[0])
                     guidance_expand = (
                         torch.tensor(
                             [embedded_guidance_scale] * latent_model_input.shape[0],
