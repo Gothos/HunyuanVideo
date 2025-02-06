@@ -1209,7 +1209,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
 
                             # Merge in the future to avoid double computation
 
-
+                            print(tar_prompt,tar_prompt_mask,)
                             with torch.autocast(
                                 device_type="cuda", dtype=target_dtype, enabled=autocast_enabled
                             ):
@@ -1231,7 +1231,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                                     zt_tar,  # [2, 16, 33, 24, 42]
                                     t_expand,  # [2]
                                     text_states=tar_prompt_embeds,  # [2, 256, 4096]
-                                    text_mask=tar_prompt_mask,  # [2, 256]
+                                    text_mask=tar_prompt_mask if tar_prompt_mask is not None else prompt_mask,  # [2, 256]
                                     text_states_2=tar_prompt_embeds_2,  # [2, 768]
                                     freqs_cos=freqs_cis[0],  # [seqlen, head_dim]
                                     freqs_sin=freqs_cis[1],  # [seqlen, head_dim]
