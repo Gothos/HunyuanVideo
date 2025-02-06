@@ -1054,6 +1054,8 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             generator,
             latents,noise_timestep
         )
+        if flowedit:
+            latents = video_latents
 
 
         # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
@@ -1165,6 +1167,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                             step_idx = i // getattr(self.scheduler, "order", 1)
                             callback(step_idx, t, latents)
                 else:
+                    print("flowedit")
                     zt_edit = latents.clone()
 
                     if num_inference_steps- i > n_max:
