@@ -665,7 +665,8 @@ class HunyuanVideoSampler(Inference):
             vae_ver=self.args.vae,
             enable_tiling=self.args.vae_tiling,
             video=video,
-            strength=strength
+            strength=strength,
+            flowedit=flowedit
         )[0]
         out_dict["samples"] = samples
         out_dict["prompts"] = prompt
