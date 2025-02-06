@@ -506,6 +506,7 @@ class HunyuanVideoSampler(Inference):
         num_videos_per_prompt=1,
         video=None,
         strength=0.8,
+        flowedit=False,
         **kwargs,
     ):
         """
@@ -665,7 +666,8 @@ class HunyuanVideoSampler(Inference):
             vae_ver=self.args.vae,
             enable_tiling=self.args.vae_tiling,
             video=video,
-            strength=strength
+            strength=strength,
+            flowedit=flowedit
         )[0]
         out_dict["samples"] = samples
         out_dict["prompts"] = prompt

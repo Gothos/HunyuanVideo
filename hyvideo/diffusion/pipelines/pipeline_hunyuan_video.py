@@ -758,6 +758,11 @@ class HunyuanVideoPipeline(DiffusionPipeline):
         embedded_guidance_scale: Optional[float] = None,
         video=None,
         strength = 0.6,
+        flowedit = False,
+        n_max = 20,
+        n_min = 0,
+        n_avg = 1,
+        tar_prompt = None,
         **kwargs,
     ):
         r"""
@@ -949,6 +954,54 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             prompt_mask_2 = None
             negative_prompt_mask_2 = None
 
+        if tar_prompt is not None and flowedit:
+            (
+                tar_prompt_embeds,
+                negative_tar_prompt_embeds,
+                tar_prompt_mask,
+                negative_tar_prompt_mask,
+            ) = self.encode_prompt(
+                prompt,
+                device,
+                num_videos_per_prompt,
+                self.do_classifier_free_guidance,
+                negative_prompt,
+                prompt_embeds=prompt_embeds,
+                attention_mask=attention_mask,
+                negative_prompt_embeds=negative_prompt_embeds,
+                negative_attention_mask=negative_attention_mask,
+                lora_scale=lora_scale,
+                clip_skip=self.clip_skip,
+                data_type=data_type,
+            )
+            if self.text_encoder_2 is not None:
+                (
+                    tar_prompt_embeds_2,
+                    negative_tar_prompt_embeds_2,
+                    tar_prompt_mask_2,
+                    negative_tar_prompt_mask_2,
+                ) = self.encode_prompt(
+                    prompt,
+                    device,
+                    num_videos_per_prompt,
+                    self.do_classifier_free_guidance,
+                    negative_prompt,
+                    prompt_embeds=None,
+                    attention_mask=None,
+                    negative_prompt_embeds=None,
+                    negative_attention_mask=None,
+                    lora_scale=lora_scale,
+                    clip_skip=self.clip_skip,
+                    text_encoder=self.text_encoder_2,
+                    data_type=data_type,
+                )
+            else:
+                tar_prompt_embeds_2 = None
+                negative_tar_prompt_embeds_2 = None
+                tar_prompt_mask_2 = None
+                negative_tar_prompt_mask_2 = None
+
+
         # For classifier free guidance, we need to do two forward passes.
         # Here we concatenate the unconditional and text embeddings into a single batch
         # to avoid doing two forward passes
@@ -1001,6 +1054,8 @@ class HunyuanVideoPipeline(DiffusionPipeline):
             generator,
             latents,noise_timestep
         )
+        if flowedit:
+            latents = video_latents
 
 
         # 6. Prepare extra step kwargs. TODO: Logic should ideally just be moved out of the pipeline
@@ -1025,90 +1080,192 @@ class HunyuanVideoPipeline(DiffusionPipeline):
         # if is_progress_bar:
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
-                if self.interrupt:
-                    continue
 
-                # expand the latents if we are doing classifier free guidance
-                latent_model_input = (
-                    torch.cat([latents] * 2)
-                    if self.do_classifier_free_guidance
-                    else latents
-                )
-                latent_model_input = self.scheduler.scale_model_input(
-                    latent_model_input, t
-                )
+                if not flowedit:
+                    if self.interrupt:
+                        continue
 
-                t_expand = t.repeat(latent_model_input.shape[0])
-                guidance_expand = (
-                    torch.tensor(
-                        [embedded_guidance_scale] * latent_model_input.shape[0],
-                        dtype=torch.float32,
-                        device=device,
-                    ).to(target_dtype)
-                    * 1000.0
-                    if embedded_guidance_scale is not None
-                    else None
-                )
-
-                # predict the noise residual
-                with torch.autocast(
-                    device_type="cuda", dtype=target_dtype, enabled=autocast_enabled
-                ):
-                    noise_pred = self.transformer(  # For an input image (129, 192, 336) (1, 256, 256)
-                        latent_model_input,  # [2, 16, 33, 24, 42]
-                        t_expand,  # [2]
-                        text_states=prompt_embeds,  # [2, 256, 4096]
-                        text_mask=prompt_mask,  # [2, 256]
-                        text_states_2=prompt_embeds_2,  # [2, 768]
-                        freqs_cos=freqs_cis[0],  # [seqlen, head_dim]
-                        freqs_sin=freqs_cis[1],  # [seqlen, head_dim]
-                        guidance=guidance_expand,
-                        return_dict=True,
-                    )[
-                        "x"
-                    ]
-
-                # perform guidance
-                if self.do_classifier_free_guidance:
-                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-                    noise_pred = noise_pred_uncond + self.guidance_scale * (
-                        noise_pred_text - noise_pred_uncond
+                    # expand the latents if we are doing classifier free guidance
+                    latent_model_input = (
+                        torch.cat([latents] * 2)
+                        if self.do_classifier_free_guidance
+                        else latents
+                    )
+                    latent_model_input = self.scheduler.scale_model_input(
+                        latent_model_input, t
                     )
 
-                if self.do_classifier_free_guidance and self.guidance_rescale > 0.0:
-                    # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
-                    noise_pred = rescale_noise_cfg(
-                        noise_pred,
-                        noise_pred_text,
-                        guidance_rescale=self.guidance_rescale,
+                    t_expand = t.repeat(latent_model_input.shape[0])
+                    guidance_expand = (
+                        torch.tensor(
+                            [embedded_guidance_scale] * latent_model_input.shape[0],
+                            dtype=torch.float32,
+                            device=device,
+                        ).to(target_dtype)
+                        * 1000.0
+                        if embedded_guidance_scale is not None
+                        else None
                     )
 
-                # compute the previous noisy sample x_t -> x_t-1
-                latents = self.scheduler.step(
-                    noise_pred, t, latents, **extra_step_kwargs, return_dict=False
-                )[0]
+                    # predict the noise residual
+                    with torch.autocast(
+                        device_type="cuda", dtype=target_dtype, enabled=autocast_enabled
+                    ):
+                        noise_pred = self.transformer(  # For an input image (129, 192, 336) (1, 256, 256)
+                            latent_model_input,  # [2, 16, 33, 24, 42]
+                            t_expand,  # [2]
+                            text_states=prompt_embeds,  # [2, 256, 4096]
+                            text_mask=prompt_mask,  # [2, 256]
+                            text_states_2=prompt_embeds_2,  # [2, 768]
+                            freqs_cos=freqs_cis[0],  # [seqlen, head_dim]
+                            freqs_sin=freqs_cis[1],  # [seqlen, head_dim]
+                            guidance=guidance_expand,
+                            return_dict=True,
+                        )[
+                            "x"
+                        ]
 
-                if callback_on_step_end is not None:
-                    callback_kwargs = {}
-                    for k in callback_on_step_end_tensor_inputs:
-                        callback_kwargs[k] = locals()[k]
-                    callback_outputs = callback_on_step_end(self, i, t, callback_kwargs)
+                    # perform guidance
+                    if self.do_classifier_free_guidance:
+                        noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                        noise_pred = noise_pred_uncond + self.guidance_scale * (
+                            noise_pred_text - noise_pred_uncond
+                        )
 
-                    latents = callback_outputs.pop("latents", latents)
-                    prompt_embeds = callback_outputs.pop("prompt_embeds", prompt_embeds)
-                    negative_prompt_embeds = callback_outputs.pop(
-                        "negative_prompt_embeds", negative_prompt_embeds
-                    )
+                    if self.do_classifier_free_guidance and self.guidance_rescale > 0.0:
+                        # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
+                        noise_pred = rescale_noise_cfg(
+                            noise_pred,
+                            noise_pred_text,
+                            guidance_rescale=self.guidance_rescale,
+                        )
 
-                # call the callback, if provided
-                if i == len(timesteps) - 1 or (
-                    (i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0
-                ):
-                    if progress_bar is not None:
-                        progress_bar.update()
-                    if callback is not None and i % callback_steps == 0:
-                        step_idx = i // getattr(self.scheduler, "order", 1)
-                        callback(step_idx, t, latents)
+                    # compute the previous noisy sample x_t -> x_t-1
+                    latents = self.scheduler.step(
+                        noise_pred, t, latents, **extra_step_kwargs, return_dict=False
+                    )[0]
+
+                    if callback_on_step_end is not None:
+                        callback_kwargs = {}
+                        for k in callback_on_step_end_tensor_inputs:
+                            callback_kwargs[k] = locals()[k]
+                        callback_outputs = callback_on_step_end(self, i, t, callback_kwargs)
+
+                        latents = callback_outputs.pop("latents", latents)
+                        prompt_embeds = callback_outputs.pop("prompt_embeds", prompt_embeds)
+                        negative_prompt_embeds = callback_outputs.pop(
+                            "negative_prompt_embeds", negative_prompt_embeds
+                        )
+
+                    # call the callback, if provided
+                    if i == len(timesteps) - 1 or (
+                        (i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0
+                    ):
+                        if progress_bar is not None:
+                            progress_bar.update()
+                        if callback is not None and i % callback_steps == 0:
+                            step_idx = i // getattr(self.scheduler, "order", 1)
+                            callback(step_idx, t, latents)
+                else:
+                    print("flowedit")
+                    zt_edit = latents.clone()
+
+                    if num_inference_steps- i > n_max:
+                        continue
+
+                    self.scheduler._init_step_index(t)
+                    t_i = self.scheduler.sigmas[self.scheduler.step_index]
+                    if i < len(timesteps):
+                        t_im1 = self.scheduler.sigmas[self.scheduler.step_index + 1]
+                    else:
+                        t_im1 = t_i
+                    
+                    if num_inference_steps- i > n_min:
+
+                        # Calculate the average of the V predictions
+                        V_delta_avg = torch.zeros_like(latents)
+
+                        for k in range(n_avg):
+                                                
+
+                            fwd_noise = torch.randn_like(latents).to(latents.device)
+                            
+                            zt_src = (1-t_i)*latents + (t_i)*fwd_noise
+
+                            zt_tar = zt_edit + zt_src - latents
+
+                            # Merge in the future to avoid double computation
+
+
+                            with torch.autocast(
+                                device_type="cuda", dtype=target_dtype, enabled=autocast_enabled
+                            ):
+                                Vt_src = self.transformer(  # For an input image (129, 192, 336) (1, 256, 256)
+                                    zt_src,  # [2, 16, 33, 24, 42]
+                                    t_expand,  # [2]
+                                    text_states=prompt_embeds,  # [2, 256, 4096]
+                                    text_mask=prompt_mask,  # [2, 256]
+                                    text_states_2=prompt_embeds_2,  # [2, 768]
+                                    freqs_cos=freqs_cis[0],  # [seqlen, head_dim]
+                                    freqs_sin=freqs_cis[1],  # [seqlen, head_dim]
+                                    guidance=guidance_expand,
+                                    return_dict=True,
+                                )[
+                                    "x"
+                                ]
+
+                                Vt_tar = self.transformer(  # For an input image (129, 192, 336) (1, 256, 256)
+                                    zt_tar,  # [2, 16, 33, 24, 42]
+                                    t_expand,  # [2]
+                                    text_states=tar_prompt_embeds,  # [2, 256, 4096]
+                                    text_mask=tar_prompt_mask,  # [2, 256]
+                                    text_states_2=tar_prompt_embeds_2,  # [2, 768]
+                                    freqs_cos=freqs_cis[0],  # [seqlen, head_dim]
+                                    freqs_sin=freqs_cis[1],  # [seqlen, head_dim]
+                                    guidance=guidance_expand,
+                                    return_dict=True,
+                                )[
+                                    "x"
+                                ]
+
+                            V_delta_avg += (1/n_avg) * (Vt_tar - Vt_src) # - (hfg-1)*( x_src))
+
+                        # propagate direct ODE
+                        zt_edit = zt_edit.to(torch.float32)
+
+                        zt_edit = zt_edit + (t_im1 - t_i) * V_delta_avg
+
+                        zt_edit = zt_edit.to(V_delta_avg.dtype)
+
+                    else: 
+
+                        if i == num_inference_steps-n_min:
+                            # initialize SDEDIT-style generation phase
+                            fwd_noise = torch.randn_like(latents).to(latents.device)
+                            xt_src = self.scheduler.scale_noise(latents, t, fwd_noise)
+                            xt_tar = zt_edit + xt_src - latents
+                            
+                        Vt_tar = self.transformer(  # For an input image (129, 192, 336) (1, 256, 256)
+                                    xt_tar,  # [2, 16, 33, 24, 42]
+                                    t_expand,  # [2]
+                                    text_states=tar_prompt_embeds,  # [2, 256, 4096]
+                                    text_mask=tar_prompt_mask,  # [2, 256]
+                                    text_states_2=tar_prompt_embeds_2,  # [2, 768]
+                                    freqs_cos=freqs_cis[0],  # [seqlen, head_dim]
+                                    freqs_sin=freqs_cis[1],  # [seqlen, head_dim]
+                                    guidance=guidance_expand,
+                                    return_dict=True,
+                                )[
+                                    "x"
+                                ]
+
+                        xt_tar = xt_tar.to(torch.float32)
+
+                        prev_sample = xt_tar + (t_im1 - t_i) * (Vt_tar)
+
+                        prev_sample = prev_sample.to(Vt_tar.dtype)
+                        xt_tar = prev_sample
+                    latents = zt_edit if n_min == 0 else xt_tar
 
         if not output_type == "latent":
             expand_temporal_dim = False
