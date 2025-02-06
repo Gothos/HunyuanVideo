@@ -511,6 +511,7 @@ class HunyuanVideoSampler(Inference):
         num_videos_per_prompt=1,
         video=None,
         strength=0.8,
+        flowedit = False,
         **kwargs,
     ):
         """
