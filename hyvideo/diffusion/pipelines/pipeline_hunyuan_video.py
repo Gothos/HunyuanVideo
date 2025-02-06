@@ -1081,8 +1081,6 @@ class HunyuanVideoPipeline(DiffusionPipeline):
         # if is_progress_bar:
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
-                t_expand = t.repeat(latent_model_input.shape[0])
-
 
                 if not flowedit:
                     if self.interrupt:
@@ -1097,6 +1095,8 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                     latent_model_input = self.scheduler.scale_model_input(
                         latent_model_input, t
                     )
+
+                    t_expand = t.repeat(latent_model_input.shape[0])
                     guidance_expand = (
                         torch.tensor(
                             [embedded_guidance_scale] * latent_model_input.shape[0],
@@ -1169,6 +1169,8 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                             callback(step_idx, t, latents)
                 else:
                     print("flowedit")
+                    t_expand = t.repeat(latents.shape[0])
+
                     zt_edit = latents.clone()
 
                     if num_inference_steps- i > n_max:
