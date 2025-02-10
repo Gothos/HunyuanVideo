@@ -1164,7 +1164,6 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                     zt_edit = latents.clone()
 
                     if num_inference_steps- i > n_max:
-                        print("skipping in flowedit")
                         continue
 
                     self.scheduler._init_step_index(t)
@@ -1175,7 +1174,6 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                         t_im1 = t_i
                     
                     if num_inference_steps- i > n_min:
-                        print("actually doing something")
 
                         # Calculate the average of the V predictions
                         V_delta_avg = torch.zeros_like(latents)
@@ -1258,6 +1256,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
 
                         prev_sample = prev_sample.to(Vt_tar.dtype)
                         xt_tar = prev_sample
+                    print(torch.max(latents-zt_edit),"max diff")
                     latents = zt_edit if n_min == 0 else xt_tar
 
                 if callback_on_step_end is not None:
