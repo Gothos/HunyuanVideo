@@ -974,6 +974,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                 clip_skip=self.clip_skip,
                 data_type=data_type,
             )
+            print(tar_prompt_embeds,tar_prompt_mask)
             if self.text_encoder_2 is not None:
                 (
                     tar_prompt_embeds_2,
@@ -1146,27 +1147,6 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                         noise_pred, t, latents, **extra_step_kwargs, return_dict=False
                     )[0]
 
-                    if callback_on_step_end is not None:
-                        callback_kwargs = {}
-                        for k in callback_on_step_end_tensor_inputs:
-                            callback_kwargs[k] = locals()[k]
-                        callback_outputs = callback_on_step_end(self, i, t, callback_kwargs)
-
-                        latents = callback_outputs.pop("latents", latents)
-                        prompt_embeds = callback_outputs.pop("prompt_embeds", prompt_embeds)
-                        negative_prompt_embeds = callback_outputs.pop(
-                            "negative_prompt_embeds", negative_prompt_embeds
-                        )
-
-                    # call the callback, if provided
-                    if i == len(timesteps) - 1 or (
-                        (i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0
-                    ):
-                        if progress_bar is not None:
-                            progress_bar.update()
-                        if callback is not None and i % callback_steps == 0:
-                            step_idx = i // getattr(self.scheduler, "order", 1)
-                            callback(step_idx, t, latents)
                 else:
                     print("flowedit")
                     t_expand = t.repeat(latents.shape[0])
@@ -1184,6 +1164,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                     zt_edit = latents.clone()
 
                     if num_inference_steps- i > n_max:
+                        print("skipping in flowedit")
                         continue
 
                     self.scheduler._init_step_index(t)
@@ -1194,6 +1175,7 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                         t_im1 = t_i
                     
                     if num_inference_steps- i > n_min:
+                        print("actually doing something")
 
                         # Calculate the average of the V predictions
                         V_delta_avg = torch.zeros_like(latents)
@@ -1208,8 +1190,6 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                             zt_tar = zt_edit + zt_src - latents
 
                             # Merge in the future to avoid double computation
-
-                            print(tar_prompt,tar_prompt_mask,)
                             with torch.autocast(
                                 device_type="cuda", dtype=target_dtype, enabled=autocast_enabled
                             ):
@@ -1279,6 +1259,28 @@ class HunyuanVideoPipeline(DiffusionPipeline):
                         prev_sample = prev_sample.to(Vt_tar.dtype)
                         xt_tar = prev_sample
                     latents = zt_edit if n_min == 0 else xt_tar
+
+                if callback_on_step_end is not None:
+                    callback_kwargs = {}
+                    for k in callback_on_step_end_tensor_inputs:
+                        callback_kwargs[k] = locals()[k]
+                    callback_outputs = callback_on_step_end(self, i, t, callback_kwargs)
+
+                    latents = callback_outputs.pop("latents", latents)
+                    prompt_embeds = callback_outputs.pop("prompt_embeds", prompt_embeds)
+                    negative_prompt_embeds = callback_outputs.pop(
+                        "negative_prompt_embeds", negative_prompt_embeds
+                    )
+
+                # call the callback, if provided
+                if i == len(timesteps) - 1 or (
+                    (i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0
+                ):
+                    if progress_bar is not None:
+                        progress_bar.update()
+                    if callback is not None and i % callback_steps == 0:
+                        step_idx = i // getattr(self.scheduler, "order", 1)
+                        callback(step_idx, t, latents)
 
         if not output_type == "latent":
             expand_temporal_dim = False
